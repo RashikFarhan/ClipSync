@@ -103,22 +103,22 @@ class DevicesScreen extends StatelessWidget {
             ),
           ],
       // ── Pairing Log ──────────────────────────────────────────────────────
-          _PairingLogSection(),
+          const _PairingLogSection(),
         ],
       ),
     );
   }
 
-  Widget _emptyState() => Center(
+  Widget _emptyState() => const Center(
     child: Column(
       mainAxisSize: MainAxisSize.min,
       children: [
         Icon(Icons.devices_other, size: 64, color: Colors.white12),
-        const SizedBox(height: 16),
-        const Text('No Trusted Devices', style: TextStyle(color: Colors.white54, fontSize: 18)),
-        const SizedBox(height: 8),
-        const Text('Tap "Add Device" to pair with another\nClipSync device via QR code.', textAlign: TextAlign.center, style: TextStyle(color: Colors.white24, fontSize: 13)),
-        const SizedBox(height: 4),
+        SizedBox(height: 16),
+        Text('No Trusted Devices', style: TextStyle(color: Colors.white54, fontSize: 18)),
+        SizedBox(height: 8),
+        Text('Tap "Add Device" to pair with another\nClipSync device via QR code.', textAlign: TextAlign.center, style: TextStyle(color: Colors.white24, fontSize: 13)),
+        SizedBox(height: 4),
         Text('Tap 🧪 to simulate a mesh for demo.', textAlign: TextAlign.center, style: TextStyle(color: Colors.white12, fontSize: 11)),
       ],
     ),

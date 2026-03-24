@@ -250,7 +250,7 @@ Future<void> registerGlobalHotkey(
       // ── Overlay-only window approach ──────────────────────────────────────
       // Hide the title bar so it looks like a standalone clip picker (Win+V style).
       // Resize to the overlay card size, show it, and restore everything on dismiss.
-      final overlaySize = const Size(420, 600);
+      const overlaySize = Size(420, 600);
 
       await windowManager.setTitleBarStyle(TitleBarStyle.hidden);
       await windowManager.setSkipTaskbar(true);

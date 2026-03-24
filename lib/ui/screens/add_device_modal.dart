@@ -22,9 +22,9 @@ void showAddDeviceModal(BuildContext context) {
     showDialog(
       context: context,
       barrierDismissible: true,
-      builder: (_) => Dialog(
+      builder: (_) => const Dialog(
         backgroundColor: Colors.transparent,
-        insetPadding: const EdgeInsets.symmetric(horizontal: 40, vertical: 60),
+        insetPadding: EdgeInsets.symmetric(horizontal: 40, vertical: 60),
         child: _AddDeviceContent(isDialog: true),
       ),
     );

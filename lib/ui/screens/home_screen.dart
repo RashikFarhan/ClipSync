@@ -1,9 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 import 'dart:io';
-import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import '../../core/services/health_service.dart';
 import '../widgets/onboarding_wizard.dart';
 import 'vault_page.dart';
 import 'devices_screen.dart';

@@ -221,7 +221,7 @@ class _SettingsPageState extends State<SettingsPage> {
               title: const Text('Sync Images', style: TextStyle(color: Colors.white)),
               subtitle: const Text('High-bandwidth ecosystem feature', style: TextStyle(color: Colors.white38, fontSize: 12)),
               value: _syncImages,
-              activeColor: const Color(0xFF00E5FF),
+              activeThumbColor: const Color(0xFF00E5FF),
               onChanged: (v) {
                 setState(() => _syncImages = v);
                 _savePref('syncImages', v);
@@ -316,7 +316,7 @@ class _SettingsPageState extends State<SettingsPage> {
                   subtitle: const Text('Automatic background sync utility layer', style: TextStyle(color: Colors.white38, fontSize: 12)),
                   trailing: Switch(
                     value: _startOnBoot,
-                    activeColor: const Color(0xFF00E5FF),
+                    activeThumbColor: const Color(0xFF00E5FF),
                     onChanged: (v) async {
                       if (isWindows) {
                         final bridge = context.read<WindowsBridge>();
@@ -397,14 +397,14 @@ class _SettingsPageState extends State<SettingsPage> {
           if (isAndroid) ...[
             _sectionHeader('QUICK PASTE SETUP'),
             _card(children: [
-              ListTile(
-                leading: const Icon(Icons.dashboard_customize, color: Colors.white54),
-                title: const Text('Quick Settings Tile', style: TextStyle(color: Colors.white)),
-                subtitle: const Text(
+              const ListTile(
+                leading: Icon(Icons.dashboard_customize, color: Colors.white54),
+                title: Text('Quick Settings Tile', style: TextStyle(color: Colors.white)),
+                subtitle: Text(
                   'Swipe down → Edit tiles (✏️) → Drag "ClipSync" to the top row',
                   style: TextStyle(color: Colors.white38, fontSize: 12),
                 ),
-                trailing: const Icon(Icons.info_outline, color: Color(0xFF00E5FF), size: 20),
+                trailing: Icon(Icons.info_outline, color: Color(0xFF00E5FF), size: 20),
               ),
               const Divider(color: Colors.white12, height: 1),
               ListTile(

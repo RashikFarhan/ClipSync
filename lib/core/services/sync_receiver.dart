@@ -91,7 +91,7 @@ class SyncReceiver extends ChangeNotifier {
   /// Called by ClipboardChannel.onClipCaptured when the local user copies.
   /// Encodes the clip and logs a broadcast attempt via SignalingService.
   Future<void> broadcastLocalClip(ClipItem clip) async {
-    _log('[BROADCAST] Local copy detected — "${ clip.content.length > 30 ? clip.content.substring(0, 30) + "…" : clip.content}" from [${clip.deviceName}].');
+    _log('[BROADCAST] Local copy detected — "${ clip.content.length > 30 ? "${clip.content.substring(0, 30)}…" : clip.content}" from [${clip.deviceName}].');
 
     // Build stub-encrypted payload (Base64 JSON) — Phase 4 will add AES-256
     final raw = jsonEncode({

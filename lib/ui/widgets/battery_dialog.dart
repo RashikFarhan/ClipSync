@@ -1,5 +1,3 @@
-import 'dart:io';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../core/services/health_service.dart';
@@ -11,7 +9,7 @@ void showBatteryOptimizationDialog(BuildContext context) {
     builder: (ctx) => AlertDialog(
       backgroundColor: const Color(0xFF1A1A1A),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-      title: Row(children: const [
+      title: const Row(children: [
         Icon(Icons.battery_alert, color: Color(0xFF00E5FF)),
         SizedBox(width: 8),
         Text('Battery Optimization', style: TextStyle(color: Colors.white, fontSize: 18)),

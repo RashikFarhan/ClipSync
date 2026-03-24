@@ -38,11 +38,11 @@ class VaultPage extends StatelessWidget {
           const SliverToBoxAdapter(child: SizedBox(height: 24)),
           
           if (pinned.isNotEmpty) ...[
-            SliverToBoxAdapter(
+            const SliverToBoxAdapter(
               child: Padding(
-                padding: const EdgeInsets.only(left: 16, bottom: 16),
+                padding: EdgeInsets.only(left: 16, bottom: 16),
                 child: Row(
-                  children: const [
+                  children: [
                     Icon(Icons.push_pin, color: Color(0xFF00E5FF), size: 18),
                     SizedBox(width: 8),
                     Text('Pinned Clips', style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)),
@@ -58,11 +58,11 @@ class VaultPage extends StatelessWidget {
           ],
 
           if (recent.isNotEmpty) ...[
-            SliverToBoxAdapter(
+            const SliverToBoxAdapter(
               child: Padding(
-                padding: const EdgeInsets.only(left: 16, bottom: 16),
+                padding: EdgeInsets.only(left: 16, bottom: 16),
                 child: Row(
-                  children: const [
+                  children: [
                     Icon(Icons.history, color: Colors.white54, size: 18),
                     SizedBox(width: 8),
                     Text('Recent Activity', style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)),
