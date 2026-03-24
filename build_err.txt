@@ -1,0 +1,3 @@
+C:\All Files\04_Work\Antigravity\ClipSync\.dart_tool\package_config.json does not exist.
+Did you run this command from the same directory as your pubspec.yaml file?
+

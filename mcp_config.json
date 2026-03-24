@@ -1,0 +1,17 @@
+{
+  "mcpServers": {
+    "dart-mcp-server": {
+      "command": "C:\\src\\flutter\\bin\\cache\\dart-sdk\\bin\\dart.exe",
+      "args": [
+        "mcp-server"
+      ],
+      "env": {}
+    },
+    "stitch": {
+      "serverUrl": "https://stitch.googleapis.com/mcp",
+      "headers": {
+        "X-Goog-Api-Key": "AQ.Ab8RN6JD88qCSSiDzSF3orzs9lL2v0-ulpuUuQaAYvBFTClVKw"
+      }
+    }
+  }
+}

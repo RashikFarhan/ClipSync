@@ -1,0 +1,63 @@
+Resolving dependencies...
+Downloading packages...
+  flutter_lints 3.0.2 (6.0.0 available)
+  flutter_webrtc 0.12.12+hotfix.1 (1.4.0 available)
+  lints 3.0.0 (6.1.0 available)
+  meta 1.17.0 (1.18.2 available)
+  system_tray 0.1.1 (2.0.3 available)
+  test_api 0.7.10 (0.7.11 available)
+  vector_math 2.2.0 (2.3.0 available)
+Got dependencies!
+7 packages have newer versions incompatible with dependency constraints.
+Try `flutter pub outdated` for more information.
+Running Gradle task 'assembleRelease'...                        
+Warning: The plugin mobile_scanner requires Android SDK version 36 or higher.
+For more information about build configuration, see https://flutter.dev/to/review-gradle-config.
+Warning: The plugin path_provider_android requires Android SDK version 36 or higher.
+For more information about build configuration, see https://flutter.dev/to/review-gradle-config.
+Warning: The plugin sqflite_android requires Android SDK version 36 or higher.
+For more information about build configuration, see https://flutter.dev/to/review-gradle-config.
+Your project is configured to compile against Android SDK 35, but the following plugin(s) require to be compiled against a higher Android SDK version:
+- mobile_scanner compiles against Android SDK 36
+- path_provider_android compiles against Android SDK 36
+- sqflite_android compiles against Android SDK 36
+Both build.gradle and build.gradle.kts exist, so
+build.gradle.kts is ignored. This is likely a mistake.
+Fix this issue by compiling against the highest Android SDK version (they are backward compatible).
+Add the following to C:\All Files\04_Work\Antigravity\ClipSync\android\app\build.gradle:
+
+    android {
+        compileSdk = 36
+        ...
+    }
+Your project is configured with Android NDK 25.1.8937393, but the following plugin(s) depend on a different Android NDK version:
+- flutter_webrtc requires Android NDK 27.0.12077973
+- mobile_scanner requires Android NDK 27.0.12077973
+- path_provider_android requires Android NDK 27.0.12077973
+- permission_handler_android requires Android NDK 27.0.12077973
+- sqflite_android requires Android NDK 27.0.12077973
+Both build.gradle and build.gradle.kts exist, so
+build.gradle.kts is ignored. This is likely a mistake.
+Fix this issue by using the highest Android NDK version (they are backward compatible).
+Add the following to C:\All Files\04_Work\Antigravity\ClipSync\android\app\build.gradle:
+
+    android {
+        ndkVersion = "27.0.12077973"
+        ...
+    }
+
+FAILURE: Build failed with an exception.
+
+* What went wrong:
+Execution failed for task ':app:compileReleaseKotlin'.
+> Inconsistent JVM Target Compatibility Between Java and Kotlin Tasks
+    Inconsistent JVM Target Compatibility Between Java and Kotlin Tasks
+      Inconsistent JVM-target compatibility detected for tasks 'compileReleaseJavaWithJavac' (1.8) and 'compileReleaseKotlin' (17).
+
+* Try:
+> Consider using JVM Toolchain: https://kotl.in/gradle/jvm/toolchain
+> Run with --scan to get full insights.
+
+BUILD FAILED in 19s
+Running Gradle task 'assembleRelease'...                           19.6s
+Gradle task assembleRelease failed with exit code 1
