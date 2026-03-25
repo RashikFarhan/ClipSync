@@ -26,11 +26,34 @@ int APIENTRY wWinMain(_In_ HINSTANCE instance, _In_opt_ HINSTANCE prev,
 
   FlutterWindow window(project);
   Win32Window::Point origin(10, 10);
-  Win32Window::Size size(1280, 720);
+  Win32Window::Size size(420, 780);
+
+  // ── Silent autostart: create window but keep it hidden until Dart shows it.
+  // When launched with --autostart (Windows startup), we pass SW_HIDE so the
+  // window is never shown — the app lives purely in the system tray.
+  bool is_autostart = false;
+  int argc;
+  LPWSTR* argv = ::CommandLineToArgvW(::GetCommandLineW(), &argc);
+  if (argv) {
+    for (int i = 1; i < argc; ++i) {
+      if (::wcscmp(argv[i], L"--autostart") == 0) {
+        is_autostart = true;
+        break;
+      }
+    }
+    ::LocalFree(argv);
+  }
+
   if (!window.Create(L"clip_sync", origin, size)) {
     return EXIT_FAILURE;
   }
-  window.SetQuitOnClose(true);
+  window.SetQuitOnClose(false);
+
+  // If autostart: keep the window hidden. The system_tray / window_manager
+  // Dart code will show it explicitly when the user clicks the tray icon.
+  if (is_autostart) {
+    ::ShowWindow(window.GetHandle(), SW_HIDE);
+  }
 
   ::MSG msg;
   while (::GetMessage(&msg, nullptr, 0, 0)) {

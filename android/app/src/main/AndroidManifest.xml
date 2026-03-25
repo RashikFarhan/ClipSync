@@ -38,19 +38,20 @@
             android:taskAffinity=""
             android:launchMode="singleInstance" />
 
-        <!-- Quick Settings Tile -->
-        <service
-            android:name=".QuickPasteTileService"
-            android:exported="true"
-            android:label="ClipSync"
-            android:icon="@mipmap/launcher_icon"
-            android:permission="android.permission.BIND_QUICK_SETTINGS_TILE">
-            <intent-filter>
-                <action android:name="android.service.quicksettings.action.QS_TILE"/>
-            </intent-filter>
-        </service>
-        
-        <!-- Foreground Sync Service -->
+        <!--
+            SyncClipboardActivity — Transparent Activity launched by the "Sync Now"
+            notification action button. Reads clipboard only after gaining window focus
+            (onWindowFocusChanged), which is required for clipboard access on Android 10+.
+        -->
+        <activity
+            android:name=".SyncClipboardActivity"
+            android:exported="false"
+            android:theme="@android:style/Theme.Translucent.NoTitleBar"
+            android:excludeFromRecents="true"
+            android:taskAffinity=""
+            android:launchMode="singleInstance" />
+
+        <!-- Foreground Sync Service (also hosts the "Sync Now" notification action) -->
         <service 
             android:name=".SyncForegroundService"
             android:foregroundServiceType="dataSync"

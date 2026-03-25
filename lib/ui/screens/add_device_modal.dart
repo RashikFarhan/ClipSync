@@ -16,7 +16,10 @@ enum _AddDevicePath { none, showQR, scan }
 ///
 /// Both paths share the code below; only the wrapping chrome differs.
 void showAddDeviceModal(BuildContext context) {
-  final bool isDesktop = !kIsWeb && (Platform.isWindows || Platform.isMacOS || Platform.isLinux);
+  bool isDesktop = false;
+  if (!kIsWeb) {
+    isDesktop = Platform.isWindows || Platform.isMacOS || Platform.isLinux;
+  }
 
   if (isDesktop) {
     showDialog(

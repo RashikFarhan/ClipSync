@@ -26,6 +26,10 @@ import 'ui/screens/quick_manager_overlay.dart';
 
 final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 
+/// Global toggle: when true the app root shows QuickManagerOverlay instead of
+/// HomeScreen.  Flipped by the hotkey handler in registerGlobalHotkey().
+final ValueNotifier<bool> overlayActive = ValueNotifier(false);
+
 void main(List<String> args) async {
   WidgetsFlutterBinding.ensureInitialized();
 
@@ -96,14 +100,15 @@ void main(List<String> args) async {
   signalingService.attachPairingService(pairingService); // closes the ACK loop
   clipProvider.attachWebRTC(webrtcService, signalingService.publishToPeer);
 
-  // WebRTC incoming clips → refresh Vault + platform injection, with loop guard
+  // WebRTC incoming clips → refresh Vault + loop guard
+  // NOTE: We deliberately do NOT write synced clips to the Windows clipboard.
+  // Writing to the clipboard would trigger the Win32 format-listener which then
+  // re-captures the text as a "new" local copy, causing a duplicate vault entry.
+  // Users paste synced clips via the overlay (hotkey) only.
   webrtcService.onRemoteClipReceived = (clip, fromPeerId) {
     clipProvider.loadClips();
-    // Mark the content so the local clipboard listener doesn't re-broadcast it
+    // Still mark as synced so if somehow the clipboard is read, the guard fires
     clipboardChannel.markAsSynced(clip.content);
-    if (!kIsWeb && Platform.isWindows) {
-      windowsBridge.setClipboard(clip.content);
-    }
   };
 
   // ── Device identity — use REAL device names ────────────────────────────────
@@ -115,7 +120,7 @@ void main(List<String> args) async {
   String deviceLabel;
   if (customName != null && customName.isNotEmpty) {
     deviceLabel = customName;
-  } else if (!kIsWeb && Platform.isWindows || Platform.isLinux || Platform.isMacOS) {
+  } else if (!kIsWeb && (Platform.isWindows || Platform.isLinux || Platform.isMacOS)) {
     // Use the real computer name — available in Dart stdlib, no plugin needed
     deviceLabel = Platform.localHostname;
   } else if (!kIsWeb && Platform.isAndroid) {
@@ -185,13 +190,26 @@ void main(List<String> args) async {
         Provider.value(value: keyService),
         Provider.value(value: dbService),
       ],
-      child: const ClipSyncApp(),
+      child: ClipSyncApp(
+        clipProvider: clipProvider,
+        windowsBridge: windowsBridge,
+        trayService: trayService,
+      ),
     ),
   );
 }
 
 class ClipSyncApp extends StatelessWidget {
-  const ClipSyncApp({super.key});
+  final ClipProvider clipProvider;
+  final WindowsBridge windowsBridge;
+  final TrayService trayService;
+
+  const ClipSyncApp({
+    super.key,
+    required this.clipProvider,
+    required this.windowsBridge,
+    required this.trayService,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -208,7 +226,33 @@ class ClipSyncApp extends StatelessWidget {
         ),
         fontFamily: 'Inter',
       ),
-      home: const HomeScreen(),
+      // Use the ValueListenableBuilder so the entire widget tree swaps.
+      // In overlay mode the window IS the panel (no frame, exact size).
+      home: ValueListenableBuilder<bool>(
+        valueListenable: overlayActive,
+        builder: (context, isOverlay, _) {
+          if (isOverlay) {
+            return QuickManagerOverlay(
+              onClose: () async {
+                // 1. Flip state FIRST so Flutter renders HomeScreen
+                overlayActive.value = false;
+
+                // 2. Restore the window to normal main-app mode
+                if (!kIsWeb && Platform.isWindows) {
+                  await windowManager.setTitleBarStyle(TitleBarStyle.normal);
+                  await windowManager.setAlwaysOnTop(false);
+                  await windowManager.setSkipTaskbar(false);
+                  await windowManager.setSize(const Size(420, 780));
+                  await windowManager.center();
+                  // Hide to tray immediately
+                  await trayService.minimizeToTray();
+                }
+              },
+            );
+          }
+          return const HomeScreen();
+        },
+      ),
     );
   }
 }
@@ -238,51 +282,35 @@ Future<void> registerGlobalHotkey(
     try {
       clipHotKey = HotKey.fromJson(jsonDecode(savedJson));
     } catch (_) {
-      clipHotKey = HotKey(key: PhysicalKeyboardKey.keyV, modifiers: [HotKeyModifier.alt, HotKeyModifier.shift]);
+      clipHotKey = HotKey(
+          key: PhysicalKeyboardKey.keyV,
+          modifiers: [HotKeyModifier.alt, HotKeyModifier.shift]);
     }
   } else {
-    clipHotKey = HotKey(key: PhysicalKeyboardKey.keyV, modifiers: [HotKeyModifier.alt, HotKeyModifier.shift]);
+    clipHotKey = HotKey(
+        key: PhysicalKeyboardKey.keyV,
+        modifiers: [HotKeyModifier.alt, HotKeyModifier.shift]);
   }
 
   await hotKeyManager.register(
     clipHotKey,
     keyDownHandler: (v) async {
-      // ── Overlay-only window approach ──────────────────────────────────────
-      // Hide the title bar so it looks like a standalone clip picker (Win+V style).
-      // Resize to the overlay card size, show it, and restore everything on dismiss.
-      const overlaySize = Size(420, 600);
+      // Already showing overlay — ignore
+      if (overlayActive.value) return;
 
-      await windowManager.setTitleBarStyle(TitleBarStyle.hidden);
-      await windowManager.setSkipTaskbar(true);
+      // Transform the window into a frameless floating panel.
+      // setAsFrameless() removes ALL Win32 window chrome — no title bar,
+      // no resize border, no border shadow. The window now IS the card.
+      await windowManager.setAsFrameless();
       await windowManager.setAlwaysOnTop(true);
-      await windowManager.setSize(overlaySize);
+      await windowManager.setSkipTaskbar(true);
+      await windowManager.setSize(const Size(380, 500));
       await windowManager.center();
       await windowManager.show();
+      await windowManager.focus();
 
-      final ctx = navigatorKey.currentContext;
-      if (ctx != null) {
-        await Navigator.of(ctx).push(
-          PageRouteBuilder(
-            opaque: true, // fully opaque — main app NOT visible
-            barrierColor: Colors.transparent,
-            pageBuilder: (_, __, ___) => MultiProvider(
-              providers: [
-                ChangeNotifierProvider.value(value: clipProvider),
-                Provider.value(value: windowsBridge),
-              ],
-              child: const QuickManagerOverlay(),
-            ),
-            transitionsBuilder: (_, anim, __, child) =>
-                FadeTransition(opacity: anim, child: child),
-            transitionDuration: const Duration(milliseconds: 120),
-          ),
-        );
-        // Overlay dismissed — restore window chrome and hide to tray
-        await windowManager.setTitleBarStyle(TitleBarStyle.normal);
-        await windowManager.setAlwaysOnTop(false);
-        await windowManager.setSize(const Size(420, 780));
-        await trayService.minimizeToTray();
-      }
+      // Swap root widget to the overlay
+      overlayActive.value = true;
     },
   );
   healthService.setHotkeyRegistered(true);

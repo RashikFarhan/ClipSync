@@ -1,7 +1,5 @@
 ; ══════════════════════════════════════════════════════════════════
-;  ClipSync Alpha v0.4 — Inno Setup Installer Script
-;  Generates:  ClipSync_Setup_v0.4.exe
-;  Run with:   Inno Setup Compiler (https://jrsoftware.org/isdl.php)
+;  ClipSync v0.1.0 — Inno Setup Installer Script
 ; ══════════════════════════════════════════════════════════════════
 
 #define AppName        "ClipSync"
@@ -25,70 +23,86 @@ AppUpdatesURL={#AppURL}
 DefaultDirName={autopf}\{#AppName}
 DefaultGroupName={#AppName}
 AllowNoIcons=yes
-; Output location is set via ISCC CLI (/O)
 OutputBaseFilename=ClipSync
-; Use the app icon for the installer wizard
 SetupIconFile=..\windows\runner\resources\app_icon.ico
-; Compress the payload
 Compression=lzma2/ultra64
 SolidCompression=yes
 WizardStyle=modern
-; Run as admin so it installs to Program Files
 PrivilegesRequired=admin
-; Minimum Windows version: Windows 10
 MinVersion=10.0.17763
+; Enable restart after install — needed to flush any locked DLLs
+RestartIfNeededByRun=no
 
 [Languages]
 Name: "english"; MessagesFile: "compiler:Default.isl"
 
 [Tasks]
-Name: "desktopicon";    Description: "{cm:CreateDesktopIcon}";    GroupDescription: "{cm:AdditionalIcons}"; Flags: unchecked
-Name: "startupentry";   Description: "Launch ClipSync automatically on Windows startup (runs in system tray)"; GroupDescription: "Background Sync:"; Flags: checkedonce
+Name: "desktopicon";  Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{cm:AdditionalIcons}"; Flags: unchecked
+Name: "startupentry"; Description: "Launch ClipSync automatically on Windows startup (runs in system tray)"; GroupDescription: "Background Sync:"; Flags: checkedonce
 
 [Files]
-; Main executable
-Source: "{#BuildDir}\{#AppExeName}";          DestDir: "{app}"; Flags: ignoreversion
-; Flutter engine + plugin DLLs
-Source: "{#BuildDir}\*.dll";                  DestDir: "{app}"; Flags: ignoreversion recursesubdirs
-; App data folder (assets, fonts, ICU)
-Source: "{#BuildDir}\data\*";                 DestDir: "{app}\data"; Flags: ignoreversion recursesubdirs createallsubdirs
-; Visual C++ redistributables (bundled so no separate VC++ install needed)
+Source: "{#BuildDir}\{#AppExeName}";  DestDir: "{app}"; Flags: ignoreversion
+Source: "{#BuildDir}\*.dll";          DestDir: "{app}"; Flags: ignoreversion recursesubdirs
+Source: "{#BuildDir}\data\*";         DestDir: "{app}\data"; Flags: ignoreversion recursesubdirs createallsubdirs
 Source: "..\windows\runner\resources\app_icon.ico"; DestDir: "{app}"; Flags: ignoreversion
 
 [Icons]
-; Start Menu shortcut
-Name: "{group}\{#AppName}";                        Filename: "{app}\{#AppExeName}"; IconFilename: "{app}\app_icon.ico"
-Name: "{group}\Uninstall {#AppName}";              Filename: "{uninstallexe}"
-; Desktop shortcut (only if task selected)
-Name: "{autodesktop}\{#AppName}";                  Filename: "{app}\{#AppExeName}"; IconFilename: "{app}\app_icon.ico"; Tasks: desktopicon
+Name: "{group}\{#AppName}";            Filename: "{app}\{#AppExeName}"; IconFilename: "{app}\app_icon.ico"
+Name: "{group}\Uninstall {#AppName}";  Filename: "{uninstallexe}"
+Name: "{autodesktop}\{#AppName}";      Filename: "{app}\{#AppExeName}"; IconFilename: "{app}\app_icon.ico"; Tasks: desktopicon
 
 [Registry]
-; Add to Windows "Apps & Features" uninstall list (done automatically by Inno)
-; Optional: Run on startup (only if task selected)
+; Startup registry entry — only if the startup task is selected
 Root: HKCU; Subkey: "Software\Microsoft\Windows\CurrentVersion\Run"; ValueType: string; ValueName: "{#AppName}"; ValueData: """{app}\{#AppExeName}"" --autostart"; Flags: uninsdeletevalue; Tasks: startupentry
 
 [Run]
-; Launch app after install finishes
 Filename: "{app}\{#AppExeName}"; Description: "{cm:LaunchProgram,{#StringChange(AppName, '&', '&&')}}"; Flags: nowait postinstall skipifsilent
 
 [UninstallDelete]
-; Remove AppData roaming folder (SharedPreferences / Flutter window state)
+; ── All user data folders — wiped on uninstall so reinstall is always clean ──
+
+; 1. SQLite DB + keys (now in %LOCALAPPDATA%\com.antigravity.clipsync or \ClipSync)
+Type: filesandordirs; Name: "{localappdata}\com.antigravity.clipsync"
+Type: filesandordirs; Name: "{localappdata}\{#AppName}"
+
+; 2. Flutter SharedPreferences / window state (%APPDATA%\ClipSync)
 Type: filesandordirs; Name: "{userappdata}\{#AppName}"
-; Remove Documents\ClipSync folder (SQLite database — clipsync.db)
+Type: filesandordirs; Name: "{userappdata}\com.antigravity.clipsync"
+
+; 3. Old Documents folder (previous versions stored DB here)
 Type: filesandordirs; Name: "{userdocs}\{#AppName}"
-; Remove any leftover files in app install dir
+
+; 4. Install directory itself
 Type: filesandordirs; Name: "{app}"
 
 [Code]
-// Kill the running ClipSync process before uninstalling so no "file in use" errors occur.
+// ── Kill ALL running instances before uninstall ───────────────────────────────
+// This prevents "file in use" errors that leave partial installs behind.
 procedure CurUninstallStepChanged(CurUninstallStep: TUninstallStep);
 var
   ResultCode: Integer;
 begin
   if CurUninstallStep = usUninstall then
   begin
+    // Kill every ClipSync.exe process — /F = force, /IM = by image name
     Exec('taskkill.exe', '/F /IM {#AppExeName}', '', SW_HIDE,
          ewWaitUntilTerminated, ResultCode);
-    Sleep(500); // give OS time to release file handles
+    // Also kill any flutter_tool or dart.exe that may hold DLLs
+    Exec('taskkill.exe', '/F /IM dart.exe', '', SW_HIDE,
+         ewWaitUntilTerminated, ResultCode);
+    Sleep(800); // give OS time to release all file handles
+  end;
+end;
+
+// ── Before install: kill any existing instance so DLLs can be replaced ───────
+procedure CurStepChanged(CurStep: TSetupStep);
+var
+  ResultCode: Integer;
+begin
+  if CurStep = ssInstall then
+  begin
+    Exec('taskkill.exe', '/F /IM {#AppExeName}', '', SW_HIDE,
+         ewWaitUntilTerminated, ResultCode);
+    Sleep(500);
   end;
 end;

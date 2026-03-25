@@ -97,6 +97,8 @@ class SignalingService extends ChangeNotifier {
         final peerTopic = 'clipboard_sync/v1/${peer.peerId}';
         _client!.subscribe(peerTopic, MqttQos.atLeastOnce);
         _addLog('[PEERS] Subscribed to: ${peer.peerName}');
+        // Register peer in session map so we can receive messages,
+        // but do NOT mark as online — only a live heartbeat does that.
         _webrtcService?.addPeer(peer);
       }
 

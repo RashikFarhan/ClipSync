@@ -53,8 +53,23 @@ object FlutterEngineManager {
                         result.success(mapOf(
                             "accessibilityEnabled" to isAccessibilityEnabled(context),
                             "batteryOptimized"     to isBatteryOptimized(context),
-                            "canDrawOverlays"      to Settings.canDrawOverlays(context)
+                            "canDrawOverlays"      to Settings.canDrawOverlays(context),
+                            "notificationsEnabled" to isNotificationsEnabled(context)
                         ))
+                    }
+                    "openNotificationSettings" -> {
+                        val intent = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                            Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).apply {
+                                putExtra(Settings.EXTRA_APP_PACKAGE, context.packageName)
+                            }
+                        } else {
+                            Intent("android.settings.APP_NOTIFICATION_SETTINGS").apply {
+                                putExtra("app_package", context.packageName)
+                                putExtra("app_uid", context.applicationInfo.uid)
+                            }
+                        }
+                        context.startActivity(intent.apply { addFlags(Intent.FLAG_ACTIVITY_NEW_TASK) })
+                        result.success(null)
                     }
                     "getDeviceModel" -> {
                         // Returns e.g. "Samsung Galaxy S23" or "Google Pixel 7"
@@ -102,23 +117,6 @@ object FlutterEngineManager {
                         )
                         result.success(null)
                     }
-                    "requestAddTileService" -> {
-                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                            val mgr = context.getSystemService(android.app.StatusBarManager::class.java)
-                            val name = android.content.ComponentName(context, QuickPasteTileService::class.java)
-                            mgr?.requestAddTileService(
-                                name,
-                                "ClipSync",
-                                android.graphics.drawable.Icon.createWithResource(context, R.drawable.ic_logo),
-                                { command -> command.run() },
-                                { /* resultCallback */ }
-                            )
-                            result.success(true)
-                        } else {
-                            // Pre-Android 13: guide user to quick settings manually
-                            result.success(false)
-                        }
-                    }
                     else -> result.notImplemented()
                 }
             }
@@ -151,5 +149,9 @@ object FlutterEngineManager {
     private fun isBatteryOptimized(context: Context): Boolean {
         val pm = context.getSystemService(Context.POWER_SERVICE) as PowerManager
         return !pm.isIgnoringBatteryOptimizations(context.packageName)
+    }
+
+    private fun isNotificationsEnabled(context: Context): Boolean {
+        return androidx.core.app.NotificationManagerCompat.from(context).areNotificationsEnabled()
     }
 }

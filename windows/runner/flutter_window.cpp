@@ -35,7 +35,20 @@ bool FlutterWindow::OnCreate() {
   SetChildContent(flutter_controller_->view()->GetNativeWindow());
 
   flutter_controller_->engine()->SetNextFrameCallback([&]() {
-    this->Show();
+    // Only show the window on first frame if this is NOT an autostart launch.
+    // On autostart the window stays hidden — visible only via tray icon click.
+    bool autostart = false;
+    int argc_cb;
+    LPWSTR* argv_cb = ::CommandLineToArgvW(::GetCommandLineW(), &argc_cb);
+    if (argv_cb) {
+      for (int i = 1; i < argc_cb; ++i) {
+        if (::wcscmp(argv_cb[i], L"--autostart") == 0) { autostart = true; break; }
+      }
+      ::LocalFree(argv_cb);
+    }
+    if (!autostart) {
+      this->Show();
+    }
   });
 
   // Flutter can complete the first frame before the "show window" callback is

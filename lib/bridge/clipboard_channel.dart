@@ -21,43 +21,75 @@ class ClipboardChannel {
     currentDeviceName = name;
   }
 
-  // ── Anti-loop guard ────────────────────────────────────────────────────────
-  // Tracks the last text that was received FROM a remote device (via sync).
-  // If the native clipboard listener fires for the same text, we ignore it —
-  // it was us that wrote it, not the user.
+  // ── Remote-echo guard ──────────────────────────────────────────────────────
+  // Tracks text last received FROM a remote device. If the native layer fires
+  // onClipboardCopied for the same text, we drop it — it was us who wrote it.
   String? _lastSyncedText;
+
+  // ── Windows duplicate guard ────────────────────────────────────────────────
   String? _lastCopiedText;
 
-  /// Call this when a remote clip is received so we can suppress the echo.
+  // ── Local duplicate guard ──────────────────────────────────────────────────
+  // Prevents a race where two Android entry points (PROCESS_TEXT + onResume)
+  // both fire for the same copy event nearly simultaneously.
+  String? _lastLocalText;
+
+  /// Call this when a remote clip arrives so we can suppress the echo.
   void markAsSynced(String text) {
     _lastSyncedText = text;
   }
 
-  // Start the foreground service via the health channel (not clipboard channel,
-  // because we must not register a native handler on the clipboard channel —
-  // the Dart-side handler is the sole listener for onClipboardCopied).
-  static const MethodChannel _healthChannel = MethodChannel('com.antigravity.clipsync/health');
+  /// Called by the manual Sync button on Android. Pushes [text] through the
+  /// same dedup pipeline as a native capture, then fires onClipCaptured.
+  Future<void> simulateLocalCopy(String text) async {
+    if (text.isEmpty) return;
+    // Dedup check
+    if (_lastSyncedText == text || _lastLocalText == text) return;
+    _lastLocalText = text;
+    final clip = ClipItem(
+      id: const Uuid().v4(),
+      content: text,
+      type: 'text',
+      timestamp: DateTime.now(),
+      deviceName: currentDeviceName,
+      isPinned: false,
+    );
+    await _dbService.insertClip(clip);
+    if (onClipCaptured != null) onClipCaptured!(clip);
+  }
+
+  // foregroundService call goes via health channel so the clipboard channel
+  // remains exclusively owned by the Dart-side MethodCallHandler.
+  static const MethodChannel _healthChannel =
+      MethodChannel('com.antigravity.clipsync/health');
 
   Future<void> startForegroundService() async {
     try {
-       await _healthChannel.invokeMethod("startForegroundService");
+      await _healthChannel.invokeMethod("startForegroundService");
     } catch (e) {
-       debugPrint("Failed to start foreground service natively: $e");
+      debugPrint("Failed to start foreground service natively: $e");
     }
   }
 
   Future<void> _handleMethodCall(MethodCall call) async {
-    // ── Android: Accessibility service detected a clipboard change ─────────
+    // ── Android: text came in via PROCESS_TEXT, QS tile, or onResume ─────────
     if (call.method == "onClipboardCopied") {
       final text = call.arguments as String?;
       if (text == null || text.isEmpty) return;
 
-      // Guard: drop if this is text we just synced from a remote device
+      // Guard 1: drop if text was just synced FROM a remote device (echo)
       if (_lastSyncedText != null && _lastSyncedText == text) {
-        _lastSyncedText = null; // consume the guard so next real copy works
-        debugPrint("[ClipboardChannel] Dropping echo of synced clip.");
+        _lastSyncedText = null; // consume guard so next real copy works
+        debugPrint("[ClipboardChannel] Dropping remote-echo clip.");
         return;
       }
+
+      // Guard 2: drop if same as last local capture (dedup across entry points)
+      if (_lastLocalText == text) {
+        debugPrint("[ClipboardChannel] Dropping duplicate local clip.");
+        return;
+      }
+      _lastLocalText = text;
 
       final clip = ClipItem(
         id: const Uuid().v4(),
@@ -67,18 +99,20 @@ class ClipboardChannel {
         deviceName: currentDeviceName,
         isPinned: false,
       );
-      await _dbService.insertClip(clip);
+      await _dbService.insertClip(clip); // DB-level dedup is a final safety net
       if (onClipCaptured != null) onClipCaptured!(clip);
-      debugPrint("Captured Text: [${text.length > 20 ? '${text.substring(0, 20)}...' : text}] | From: [$currentDeviceName]");
+      debugPrint(
+          "Captured: [${text.length > 20 ? '${text.substring(0, 20)}...' : text}] | $currentDeviceName");
 
-    // ── Windows: native Win32 clipboard format listener fired ──────────────
+    // ── Windows: native Win32 clipboard format listener fired ─────────────────
     } else if (call.method == "onNativeClipboardUpdate") {
       final ClipboardData? data = await Clipboard.getData(Clipboard.kTextPlain);
       final text = data?.text;
       if (text == null || text.isEmpty) return;
 
-      // Guard: skip duplicate + skip synced echo
+      // Skip exact duplicate (rapid Windows events)
       if (text == _lastCopiedText) return;
+      // Skip if this is text we just synced from a remote device
       if (_lastSyncedText != null && _lastSyncedText == text) {
         _lastSyncedText = null;
         debugPrint("[ClipboardChannel][Win] Dropping echo of synced clip.");
@@ -96,7 +130,7 @@ class ClipboardChannel {
       );
       await _dbService.insertClip(clip);
       if (onClipCaptured != null) onClipCaptured!(clip);
-      debugPrint("[Win32 Native Hook] Captured Clipboard event: $text");
+      debugPrint("[Win32 Native Hook] Captured: $text");
     }
   }
 }

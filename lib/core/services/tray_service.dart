@@ -4,8 +4,8 @@ import 'package:system_tray/system_tray.dart';
 import 'package:window_manager/window_manager.dart';
 
 class TrayService {
-  final SystemTray _systemTray = SystemTray();
-  final AppWindow _appWindow = AppWindow();
+  SystemTray? _systemTray;
+  AppWindow? _appWindow;
 
   bool _isSyncOnline = false;
 
@@ -15,10 +15,13 @@ class TrayService {
   Future<void> init() async {
     if (kIsWeb || !Platform.isWindows) return;
 
+    _systemTray = SystemTray();
+    _appWindow = AppWindow();
+
     // Prevent the OS from destroying the process when the window is closed.
     await windowManager.setPreventClose(true);
 
-    await _systemTray.initSystemTray(
+    await _systemTray!.initSystemTray(
       title: 'ClipSync',
       iconPath: 'assets/icons/tray_icon.ico',
       toolTip: 'ClipSync — Universal Clipboard',
@@ -26,22 +29,24 @@ class TrayService {
 
     await _rebuildMenu();
 
-    _systemTray.registerSystemTrayEventHandler((eventName) async {
+    _systemTray!.registerSystemTrayEventHandler((eventName) async {
       if (eventName == 'leftMouseUp') {
         await showWindow();
       } else if (eventName == 'rightMouseUp') {
-        await _systemTray.popUpContextMenu();
+        await _systemTray!.popUpContextMenu();
       }
     });
   }
 
   Future<void> setSyncStatus(bool isOnline) async {
+    if (kIsWeb || !Platform.isWindows) return;
     _isSyncOnline = isOnline;
     await _rebuildMenu();
   }
 
   Future<void> _rebuildMenu() async {
-    await _systemTray.setContextMenu([
+    if (_systemTray == null) return;
+    await _systemTray!.setContextMenu([
       MenuItem(
         label: 'Show Vault',
         onClicked: () async => showWindow(),
@@ -55,7 +60,7 @@ class TrayService {
         label: 'Exit ClipSync',
         onClicked: () async {
           await windowManager.setPreventClose(false);
-          await _appWindow.close();
+          await _appWindow?.close();
           if (onExit != null) onExit!();
         },
       ),
@@ -64,15 +69,17 @@ class TrayService {
 
   /// Reveals the window from tray, adds it back to the taskbar.
   Future<void> showWindow() async {
+    if (kIsWeb || !Platform.isWindows) return;
     await windowManager.setSkipTaskbar(false);
-    await _appWindow.show();
+    await _appWindow?.show();
     await windowManager.focus();
     if (onShowVault != null) onShowVault!();
   }
 
   /// Hides to tray and removes from taskbar — called on window close.
   Future<void> minimizeToTray() async {
-    await _appWindow.hide();
+    if (kIsWeb || !Platform.isWindows) return;
+    await _appWindow?.hide();
     await windowManager.setSkipTaskbar(true);
   }
 }

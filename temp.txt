@@ -1,6 +1,0 @@
-Building Windows application...                                 
-Nuget.exe not found, trying to download or use cached version.
-lib/main.dart(88,31): error GA7C8A1BB: Too many positional arguments: 0 allowed, but 1 found. [C:\All Files\04_Work\Antigravity\ClipSync\build\windows\x64\flutter\flutter_assemble.vcxproj]
-C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\MSBuild\Microsoft\VC\v170\Microsoft.CppCommon.targets(254,5): error MSB8066: Custom build for 'C:\All Files\04_Work\Antigravity\ClipSync\build\windows\x64\CMakeFiles\9e8f5482156795ed462a1cbaf738c031\flutter_windows.dll.rule;C:\All Files\04_Work\Antigravity\ClipSync\build\windows\x64\CMakeFiles\a850b2a583d97c7411493c0f76237bb2\flutter_assemble.rule' exited with code 1. [C:\All Files\04_Work\Antigravity\ClipSync\build\windows\x64\flutter\flutter_assemble.vcxproj]
-Building Windows application...                                    19.2s
-Build process failed.

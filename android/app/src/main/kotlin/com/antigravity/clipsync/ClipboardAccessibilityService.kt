@@ -1,57 +1,34 @@
 package com.antigravity.clipsync
 
 import android.accessibilityservice.AccessibilityService
-import android.content.ClipboardManager
-import android.content.Context
-import android.os.Build
 import android.os.Handler
 import android.os.Looper
 import android.view.accessibility.AccessibilityEvent
 import android.view.accessibility.AccessibilityNodeInfo
-import io.flutter.embedding.engine.FlutterEngineCache
-import io.flutter.plugin.common.MethodChannel
-import kotlin.collections.ArrayDeque
 
+/**
+ * ClipboardAccessibilityService
+ *
+ * Responsibilities (post-PROCESS_TEXT migration):
+ *   • Track the currently focused editable text field so we can inject paste actions.
+ *   • Expose pasteClipboardContent() for use by QuickPasteActivity (overlay paste).
+ *
+ * Clipboard *capture* is now handled exclusively by ProcessTextActivity via
+ * Android's ACTION_PROCESS_TEXT intent — no background polling, no listener,
+ * no Android 10+ restrictions. This service no longer touches ClipboardManager.
+ */
 class ClipboardAccessibilityService : AccessibilityService() {
 
-    private var clipboardManager: ClipboardManager? = null
     private val mainHandler = Handler(Looper.getMainLooper())
 
     // Track the last focused EditText node for paste injection
     private var lastFocusedNodeInfo: AccessibilityNodeInfo? = null
 
-    // ── Anti-echo guard ────────────────────────────────────────────────────────
-    // Set this before paste so we don't re-broadcast the text we just pasted.
+    // ── Anti-echo guards (set by ProcessTextActivity / QuickPasteActivity) ─────
+    // Exposed so those activities can stamp the text before writing to clipboard,
+    // preventing any residual clipboard listener from re-syncing it.
     @Volatile var suppressNextClipText: String? = null
-
-    // ── Dedup guard — tracks the last content sent to Flutter ─────────────────
     @Volatile var lastSentText: String? = null
-
-    // ── Pending queue: every clipboard change is enqueued, processed serially ──
-    private val pendingQueue = ArrayDeque<String>()
-    private var isProcessing = false
-    private val processHandler = Handler(Looper.getMainLooper())
-
-    private val clipChangedListener = ClipboardManager.OnPrimaryClipChangedListener {
-        val text = clipboardManager?.primaryClip
-            ?.takeIf { it.itemCount > 0 }
-            ?.getItemAt(0)?.text?.toString()
-            ?.takeIf { it.isNotBlank() }
-            ?: return@OnPrimaryClipChangedListener
-
-        // Suppress our own paste operations (from overlay or remote sync)
-        if (suppressNextClipText != null && suppressNextClipText == text) {
-            suppressNextClipText = null
-            return@OnPrimaryClipChangedListener
-        }
-
-        // Skip exact duplicate of the last item we already sent
-        if (text == lastSentText) return@OnPrimaryClipChangedListener
-
-        // Enqueue and schedule processing
-        pendingQueue.addLast(text)
-        scheduleProcessQueue()
-    }
 
     companion object {
         var instance: ClipboardAccessibilityService? = null
@@ -61,8 +38,6 @@ class ClipboardAccessibilityService : AccessibilityService() {
     override fun onServiceConnected() {
         super.onServiceConnected()
         instance = this
-        clipboardManager = getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-        clipboardManager?.addPrimaryClipChangedListener(clipChangedListener)
     }
 
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {
@@ -79,90 +54,42 @@ class ClipboardAccessibilityService : AccessibilityService() {
         }
     }
 
-    // ── Queue processor: 150ms delay after last enqueue, then drain sequentially
-    private fun scheduleProcessQueue() {
-        if (isProcessing) return
-        processHandler.removeCallbacksAndMessages(null)
-        processHandler.postDelayed({
-            drainQueue()
-        }, 150)
-    }
-
-    private fun drainQueue() {
-        if (pendingQueue.isEmpty()) {
-            isProcessing = false
-            return
-        }
-        isProcessing = true
-
-        val text = pendingQueue.removeFirst()
-        if (text != lastSentText) {
-            lastSentText = text
-            sendToFlutter(text)
-        }
-        processHandler.postDelayed({ drainQueue() }, 50)
-    }
-
-    private fun sendToFlutter(text: String) {
-        mainHandler.post {
-            val engine = FlutterEngineCache.getInstance().get("clipsync_engine") ?: return@post
-            val channel = MethodChannel(engine.dartExecutor.binaryMessenger, "com.antigravity.clipsync/clipboard")
-            channel.invokeMethod("onClipboardCopied", text)
-        }
-    }
-
     /**
      * Called from QuickPasteActivity when the user selects a clip.
      * Suppresses the echo so the clipboard write doesn't re-sync.
      *
      * Strategy:
-     * 1. Set anti-echo guard (prevents re-syncing the text we're about to paste).
-     * 2. Try to find the CURRENTLY focused editable node via rootInActiveWindow.
-     *    This is more reliable than the cached lastFocusedNodeInfo because the
-     *    overlay activity may have caused focus to shift.
-     * 3. If ACTION_PASTE succeeds on that node, we're done.
-     * 4. If that fails, try the cached lastFocusedNodeInfo.
-     * 5. If all else fails, just leave the text on the clipboard (user can
-     *    long-press paste from Gboard). Do NOT perform global actions that
-     *    could close the user's app.
+     * 1. Try the LIVE focused node from rootInActiveWindow (most reliable — gets
+     *    the real focused field after the overlay has closed and focus returned).
+     * 2. Fall back to the cached lastFocusedNodeInfo.
+     * 3. If both fail, do nothing — text is already on the clipboard so the user
+     *    can paste from Gboard. Never call performGlobalAction (closes apps).
      */
     fun pasteClipboardContent(text: String) {
         suppressNextClipText = text
-        lastSentText = text // also suppress the queue
+        lastSentText = text
 
-        // Strategy 1: Find the live focused editable node
+        // Strategy 1: Live focused editable node
         val liveNode = findFocusedEditableNode()
         if (liveNode != null) {
             try {
-                val success = liveNode.performAction(AccessibilityNodeInfo.ACTION_PASTE)
-                if (success) return
-            } catch (_: Exception) {
-                // Node might be stale, continue to next strategy
-            }
+                if (liveNode.performAction(AccessibilityNodeInfo.ACTION_PASTE)) return
+            } catch (_: Exception) { /* stale node, fall through */ }
         }
 
-        // Strategy 2: Try the cached last focused node
-        val cachedNode = lastFocusedNodeInfo
-        if (cachedNode != null) {
+        // Strategy 2: Cached node
+        val cached = lastFocusedNodeInfo
+        if (cached != null) {
             try {
-                if (cachedNode.isEditable) {
-                    val success = cachedNode.performAction(AccessibilityNodeInfo.ACTION_PASTE)
-                    if (success) return
-                }
-            } catch (_: Exception) {
-                // Stale node, fall through
-            }
+                if (cached.isEditable && cached.performAction(AccessibilityNodeInfo.ACTION_PASTE)) return
+            } catch (_: Exception) { /* stale, fall through */ }
         }
 
-        // Strategy 3: Graceful fallback — text is already on the clipboard.
-        // User can paste manually from Gboard. Do NOT call performGlobalAction
-        // as it can cause unpredictable behavior (closing apps, etc).
+        // Strategy 3: Silent fallback — text is on clipboard, user can paste via Gboard.
     }
 
     /**
-     * Walks rootInActiveWindow to find the currently focused editable node.
-     * This is more reliable than tracking events because it always returns
-     * the live state after the overlay has closed and focus has returned.
+     * Walks rootInActiveWindow depth-first to find the focused editable node.
      */
     private fun findFocusedEditableNode(): AccessibilityNodeInfo? {
         val root = rootInActiveWindow ?: return null
@@ -181,8 +108,6 @@ class ClipboardAccessibilityService : AccessibilityService() {
 
     override fun onDestroy() {
         instance = null
-        clipboardManager?.removePrimaryClipChangedListener(clipChangedListener)
-        processHandler.removeCallbacksAndMessages(null)
         mainHandler.removeCallbacksAndMessages(null)
         lastFocusedNodeInfo?.recycle()
         lastFocusedNodeInfo = null

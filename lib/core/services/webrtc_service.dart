@@ -21,7 +21,7 @@ class WebRTCService extends ChangeNotifier {
   final DatabaseService _dbService;
 
   /// Map<peerId, session>
-  final Map<String, _PeerSession> _sessions = {};
+  final Map<String, PeerSession> _sessions = {};
 
   /// Called when a fully decrypted clip arrives from any peer.
   void Function(ClipItem clip, String fromPeerId)? onRemoteClipReceived;
@@ -44,7 +44,7 @@ class WebRTCService extends ChangeNotifier {
 
   /// Creates or replaces a session for [peer].
   void addPeer(PeerDevice peer) {
-    _sessions[peer.peerId] = _PeerSession(peer: peer);
+    _sessions[peer.peerId] = PeerSession(peer: peer);
     _log('Peer registered: ${peer.peerName} [${peer.peerId.substring(0, 8)}…]');
     notifyListeners();
   }
@@ -59,7 +59,7 @@ class WebRTCService extends ChangeNotifier {
   void renamePeer(String peerId, String newName) {
     final session = _sessions[peerId];
     if (session != null) {
-      _sessions[peerId] = _PeerSession(peer: session.peer.copyWith(peerName: newName))
+      _sessions[peerId] = PeerSession(peer: session.peer.copyWith(peerName: newName))
         ..isOnline = session.isOnline;
       _log('Peer renamed: $newName');
       notifyListeners();
@@ -81,7 +81,7 @@ class WebRTCService extends ChangeNotifier {
     }
   }
 
-  List<_PeerSession> get activeSessions => _sessions.values.toList();
+  List<PeerSession> get activeSessions => _sessions.values.toList();
   int get onlinePeerCount => _sessions.values.where((s) => s.isOnline).length;
 
   // ── Broadcasting ────────────────────────────────────────────────────────────
@@ -114,7 +114,7 @@ class WebRTCService extends ChangeNotifier {
   }
 
   Future<void> _sendToPeer(
-    _PeerSession session,
+    PeerSession session,
     String payload,
     Future<bool> Function(String, String) sendFn,
   ) async {
@@ -215,7 +215,7 @@ class WebRTCService extends ChangeNotifier {
   }
 
   Future<void> _handleClipData(
-    Map<String, dynamic> data, String peerName, String fromPeerId, _PeerSession? session,
+    Map<String, dynamic> data, String peerName, String fromPeerId, PeerSession? session,
   ) async {
     _log('Decryption successful [$peerName].');
     final clip = ClipItem(
@@ -317,13 +317,13 @@ class WebRTCService extends ChangeNotifier {
   }
 }
 
-class _PeerSession {
+class PeerSession {
   final PeerDevice peer;
   bool isOnline = false;
   int sentCount = 0;
   int receivedCount = 0;
 
-  _PeerSession({required this.peer});
+  PeerSession({required this.peer});
 }
 
 /// Workaround: generate a simple unique key without importing Flutter widgets

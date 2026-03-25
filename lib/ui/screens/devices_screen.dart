@@ -1,7 +1,10 @@
+import 'dart:io';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../core/providers/devices_provider.dart';
 import '../../core/services/pairing_service.dart';
+import '../../core/services/health_service.dart';
 import '../../models/peer_device.dart';
 import 'add_device_modal.dart';
 
@@ -46,6 +49,10 @@ class DevicesScreen extends StatelessWidget {
       ),
       body: Column(
         children: [
+          // ── Health Dashboard ──────────────────────────────────────────────
+          if (!kIsWeb && Platform.isAndroid)
+            const _AndroidHealthBanner(),
+
           // ── Peer Cards ────────────────────────────────────────────────────
           Expanded(
             flex: peers.isEmpty ? 1 : 2,
@@ -102,7 +109,7 @@ class DevicesScreen extends StatelessWidget {
               ),
             ),
           ],
-      // ── Pairing Log ──────────────────────────────────────────────────────
+          // ── Pairing Log ──────────────────────────────────────────────────────
           const _PairingLogSection(),
         ],
       ),
@@ -123,8 +130,87 @@ class DevicesScreen extends StatelessWidget {
       ],
     ),
   );
+}
 
-  // _addMockPeer removed — real pairing now uses showAddDeviceModal()
+class _AndroidHealthBanner extends StatelessWidget {
+  const _AndroidHealthBanner();
+
+  @override
+  Widget build(BuildContext context) {
+    final health = context.watch<HealthService>();
+    final notificationsOk = health.notificationsEnabled;
+    final a11yOk = health.isAccessibilityEnabled;
+    final batteryOk = !health.isBatteryOptimized;
+
+    if (notificationsOk && a11yOk && batteryOk) return const SizedBox.shrink();
+
+    return Container(
+      margin: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.redAccent.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: Colors.redAccent.withValues(alpha: 0.3)),
+      ),
+      child: Column(
+        children: [
+          const Row(
+            children: [
+              Icon(Icons.warning_amber_rounded, color: Colors.redAccent),
+              SizedBox(width: 12),
+              Text('Action Required', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+            ],
+          ),
+          const SizedBox(height: 12),
+          if (!notificationsOk)
+            _HealthRow(
+              icon: Icons.notifications_off_outlined,
+              label: 'Notifications are blocked',
+              onFix: health.fixNotifications,
+            ),
+          if (!a11yOk)
+            _HealthRow(
+              icon: Icons.accessibility_new,
+              label: 'Paste access required',
+              onFix: health.fixAccessibility,
+            ),
+          if (!batteryOk)
+            _HealthRow(
+              icon: Icons.battery_alert,
+              label: 'Battery optimization is on',
+              onFix: health.disableBatteryOptimization,
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+class _HealthRow extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final VoidCallback onFix;
+
+  const _HealthRow({required this.icon, required this.label, required this.onFix});
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Row(
+        children: [
+          Icon(icon, size: 18, color: Colors.white70),
+          const SizedBox(width: 12),
+          Expanded(child: Text(label, style: const TextStyle(color: Colors.white70, fontSize: 13))),
+          TextButton(
+            onPressed: onFix,
+            style: TextButton.styleFrom(visualDensity: VisualDensity.compact),
+            child: const Text('FIX', style: TextStyle(color: Color(0xFF00E5FF), fontWeight: FontWeight.bold)),
+          ),
+        ],
+      ),
+    );
+  }
 }
 
 class _PeerCard extends StatelessWidget {
@@ -227,7 +313,6 @@ class _PeerCard extends StatelessWidget {
   }
 }
 
-// ── Pairing Log Section ────────────────────────────────────────────────────────
 class _PairingLogSection extends StatelessWidget {
   const _PairingLogSection();
 

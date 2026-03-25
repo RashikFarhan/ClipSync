@@ -38,11 +38,12 @@ class DatabaseService {
         ),
       );
     } else if (!kIsWeb && (Platform.isWindows || Platform.isLinux || Platform.isMacOS)) {
-      // Desktop: must use FFI factory so sqlite3.dll is resolved correctly
+      // Desktop: use FFI factory; store in ApplicationSupport (%LOCALAPPDATA%\ClipSync)
+      // This folder IS removed when the Inno Setup uninstaller runs.
       sqfliteFfiInit();
       databaseFactory = databaseFactoryFfi;
-      final docsDir = await getApplicationDocumentsDirectory();
-      final path = join(docsDir.path, 'clipsync.db');
+      final supportDir = await getApplicationSupportDirectory();
+      final path = join(supportDir.path, 'clipsync.db');
       return await databaseFactory.openDatabase(
         path,
         options: OpenDatabaseOptions(
@@ -55,12 +56,14 @@ class DatabaseService {
             if (oldVersion < 3) {
               await _createPeersTable(db);
             }
+            await _createTables(db);
           },
         ),
       );
     } else {
-      final docsDir = await getApplicationDocumentsDirectory();
-      final path = join(docsDir.path, 'clipsync.db');
+      // Android / iOS: use app-private support dir (wiped on uninstall)
+      final supportDir = await getApplicationSupportDirectory();
+      final path = join(supportDir.path, 'clipsync.db');
 
       return openDatabase(
         path,
@@ -71,7 +74,6 @@ class DatabaseService {
             await db.execute('DROP TABLE IF EXISTS clips');
           }
           if (oldVersion < 3) {
-            // Add peers table on upgrade from v2 → v3
             await _createPeersTable(db);
           }
         },
@@ -154,12 +156,15 @@ class DatabaseService {
     );
   }
 
+  // ── Configurable limit (driven by settings) ────────────────────────────────
+  static int maxClips = 50; // default; only 50 active in v0.1.0
+
   Future<void> _enforceSlidingWindow() async {
     final dbClient = await db;
     final count = Sqflite.firstIntValue(
         await dbClient.rawQuery('SELECT COUNT(*) FROM clips'));
-    if (count != null && count > 50) {
-      final extraCount = count - 50;
+    if (count != null && count > maxClips) {
+      final extraCount = count - maxClips;
       await dbClient.rawDelete('''
         DELETE FROM clips
         WHERE id IN (

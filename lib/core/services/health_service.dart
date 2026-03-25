@@ -21,6 +21,7 @@ class HealthService extends ChangeNotifier {
   bool isAccessibilityEnabled = false;
   bool isBatteryOptimized = true;
   bool canDrawOverlays = false;
+  bool notificationsEnabled = true;
 
   // Windows-specific
   bool isHotkeyRegistered = false;
@@ -49,9 +50,19 @@ class HealthService extends ChangeNotifier {
         isAccessibilityEnabled = (result['accessibilityEnabled'] as bool?) ?? false;
         isBatteryOptimized = (result['batteryOptimized'] as bool?) ?? true;
         canDrawOverlays = (result['canDrawOverlays'] as bool?) ?? false;
+        notificationsEnabled = (result['notificationsEnabled'] as bool?) ?? true;
       } catch (_) {}
     }
     notifyListeners();
+  }
+
+  Future<void> fixNotifications() async {
+    if (kIsWeb || !Platform.isAndroid) return;
+    try {
+      await _androidChannel.invokeMethod('openNotificationSettings');
+    } catch (_) {}
+    await Future.delayed(const Duration(seconds: 1));
+    await refreshHealth();
   }
 
   Future<void> fixAccessibility() async {
@@ -63,16 +74,6 @@ class HealthService extends ChangeNotifier {
     }
     await Future.delayed(const Duration(seconds: 1));
     await refreshHealth();
-  }
-
-  Future<bool> requestAddTileService() async {
-    if (kIsWeb || !Platform.isAndroid) return false;
-    try {
-      final result = await _androidChannel.invokeMethod('requestAddTileService');
-      return result == true;
-    } catch (_) {
-      return false;
-    }
   }
 
   Future<void> disableBatteryOptimization() async {

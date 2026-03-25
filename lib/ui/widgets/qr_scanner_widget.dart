@@ -35,7 +35,11 @@ class _QRScannerWidgetState extends State<QRScannerWidget> {
   }
 
   Future<void> _requestPermission() async {
-    if (kIsWeb || Platform.isWindows || Platform.isMacOS || Platform.isLinux) {
+    if (kIsWeb) {
+      setState(() => _state = _ScannerState.desktopFallback);
+      return;
+    }
+    if (Platform.isWindows || Platform.isMacOS || Platform.isLinux) {
       // Desktop — no live camera scanner; use manual entry
       setState(() => _state = _ScannerState.desktopFallback);
       return;
