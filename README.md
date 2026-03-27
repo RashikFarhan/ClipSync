@@ -8,7 +8,7 @@
   [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
   [![Platform](https://img.shields.io/badge/Platform-Android%20%7C%20Windows-brightgreen.svg)]()
 
-  <p><i>ClipSync is the ultimate privacy-first tool to bridge your devices. Effortlessly sync your clipboard between your Android smartphone and Windows PC with military-grade encryption and zero middle-men.</i></p>
+  <p><i>ClipSync is the ultimate privacy-first tool to bridge your clipboard accross devices. Effortlessly sync your clipboard between your Android smartphone and Windows PC with encryption and zero middle-men.</i></p>
 </div>
 
 ---
@@ -56,7 +56,7 @@ Want a step-by-step walkthrough? Watch the tutorial below:
   REPLACE THE LINK BELOW WITH YOUR YOUTUBE TUTORIAL 
   Current Placeholder: YouTube Link
 -->
-[![Watch the Tutorial](https://img.shields.io/badge/YouTube-Watch%20Tutorial-red?style=for-the-badge&logo=youtube)](https://www.youtube.com/watch?v=INSERT_YOUR_VIDEO_ID_HERE)
+[![Watch the Tutorial](https://img.shields.io/badge/YouTube-Watch%20Tutorial-red?style=for-the-badge&logo=youtube)](https://www.youtube.com/watch?v=_DND23IjXb0)
 
 > [!TIP]
 > **Don't have a video yet?** Input your YouTube link in the section above by editing the README and replacing `INSERT_YOUR_VIDEO_ID_HERE`.
