@@ -18,8 +18,9 @@
 - 🔒 **End-to-End Encrypted (E2EE)**: Your data is encrypted locally using curve25519/Ed25519 before it ever leaves your device. Only your paired devices have the keys to decrypt it.
 - ⚡ **Decentralized P2P Sync**: Powered by **WebRTC**, ClipSync establishes a direct peer-to-peer connection between your devices. No central server stores your clipboard history.
 - 📲 **Seamless Pairing**: Syncing is as simple as scanning a QR code. No complicated setup, no accounts, just instant connection.
-- 🖥️ **Windows Integration**: Minimize to the system tray for a clutter-free experience. Global hotkey support and automatic background synchronization.
-- 🔔 **Persistent Android Service**: Stay synced even when the app is closed. Our low-power notification service ensures your clipboard remains updated in real-time.
+- 🖥️ **Windows Integration**: Minimize to the system tray for a clutter-free experience. Support for **Start on Boot** via Windows Registry to ensure you're always synced.
+- 📋 **One-Click Sync & Paste**: Android "Sync Now" notification action for manual triggers. Windows bridge supports **Automatic Paste Simulation** (Ctrl+V) for synced content.
+- 🔄 **Anti-Echo Technology**: Intelligent guards prevent infinite clipboard loops between your synced devices.
 - 🎨 **Modern Flutter UI**: A sleek, dark-themed interface built for performance and ease of use.
 
 ---
