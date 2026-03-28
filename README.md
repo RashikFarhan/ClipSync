@@ -58,9 +58,6 @@ Want a step-by-step walkthrough? Watch the tutorial below:
 -->
 [![Watch the Tutorial](https://img.shields.io/badge/YouTube-Watch%20Tutorial-red?style=for-the-badge&logo=youtube)](https://www.youtube.com/watch?v=_DND23IjXb0)
 
-> [!TIP]
-> **Don't have a video yet?** Input your YouTube link in the section above by editing the README and replacing `INSERT_YOUR_VIDEO_ID_HERE`.
-
 ---
 
 ## 🛠️ Built With
